@@ -77,14 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Cut Tracker" },
+      { title: "Cut and Buk Tracker" },
       { name: "description", content: "Track fitness and diet with Cut Tracker." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Cut Tracker" },
+      { property: "og:title", content: "Cut and Buk Tracker" },
       { property: "og:description", content: "Track fitness and diet with Cut Tracker." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Cut and Buk Tracker" },
+      { name: "twitter:description", content: "Track fitness and diet with Cut Tracker." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a6fba8b2-178a-49b8-bbd7-9388450eafbb/id-preview-6a91e74d--7cab51c9-5b8d-47d0-b769-04f6dccecd18.lovable.app-1784771130440.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a6fba8b2-178a-49b8-bbd7-9388450eafbb/id-preview-6a91e74d--7cab51c9-5b8d-47d0-b769-04f6dccecd18.lovable.app-1784771130440.png" },
     ],
     links: [
       {
