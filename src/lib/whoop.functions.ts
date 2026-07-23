@@ -114,7 +114,9 @@ export const completeWhoopOAuth = createServerFn({ method: "POST" })
 
     if (error) {
       console.error("Failed to save whoop tokens", error);
-      throw new Error("Failed to save Whoop tokens");
+      throw new Error(
+        `Failed to save Whoop tokens: ${error.message}${error.details ? ` (${error.details})` : ""}${error.hint ? ` [hint: ${error.hint}]` : ""}`,
+      );
     }
 
     return { ok: true };
