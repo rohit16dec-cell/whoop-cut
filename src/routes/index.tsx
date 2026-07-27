@@ -2,7 +2,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { getWhoopStatus, startWhoopOAuth } from "@/lib/whoop.functions";
+import {
+  getWhoopDashboard,
+  getWhoopStatus,
+  startWhoopOAuth,
+} from "@/lib/whoop.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
