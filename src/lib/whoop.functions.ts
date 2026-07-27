@@ -14,6 +14,43 @@ import {
   redactTokenResponse,
 } from "@/lib/whoop.server";
 
+const WHOOP_API_BASE = "https://api.prod.whoop.com/developer";
+
+async function refreshWhoopToken(refreshToken: string) {
+  const clientId = process.env.WHOOP_CLIENT_ID;
+  const clientSecret = process.env.WHOOP_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error("Whoop credentials not configured");
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: clientId,
+    client_secret: clientSecret,
+    scope: WHOOP_SCOPE,
+  });
+  const res = await fetch(WHOOP_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`Whoop token refresh failed (${res.status}): ${text}`);
+  }
+  const parsed = JSON.parse(text) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    scope?: string;
+  };
+  if (!parsed.access_token || !parsed.expires_in) {
+    throw new Error(
+      `Whoop refresh response missing fields: ${JSON.stringify(redactTokenResponse(parsed))}`,
+    );
+  }
+  return parsed;
+}
+
 export const getWhoopStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
