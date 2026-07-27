@@ -14,6 +14,43 @@ import {
   redactTokenResponse,
 } from "@/lib/whoop.server";
 
+const WHOOP_API_BASE = "https://api.prod.whoop.com/developer";
+
+async function refreshWhoopToken(refreshToken: string) {
+  const clientId = process.env.WHOOP_CLIENT_ID;
+  const clientSecret = process.env.WHOOP_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error("Whoop credentials not configured");
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: clientId,
+    client_secret: clientSecret,
+    scope: WHOOP_SCOPE,
+  });
+  const res = await fetch(WHOOP_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`Whoop token refresh failed (${res.status}): ${text}`);
+  }
+  const parsed = JSON.parse(text) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    scope?: string;
+  };
+  if (!parsed.access_token || !parsed.expires_in) {
+    throw new Error(
+      `Whoop refresh response missing fields: ${JSON.stringify(redactTokenResponse(parsed))}`,
+    );
+  }
+  return parsed;
+}
+
 export const getWhoopStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -143,4 +180,68 @@ export const completeWhoopOAuth = createServerFn({ method: "POST" })
     }
 
     return { ok: true };
+  });
+
+export const getWhoopDashboard = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: row, error } = await context.supabase
+      .from("whoop_tokens")
+      .select("access_token, refresh_token, expires_at")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (error) throw new Error(`Failed to load Whoop tokens: ${error.message}`);
+    if (!row) throw new Error("Whoop is not connected");
+
+    let accessToken = row.access_token as string;
+    const expiresAt = new Date(row.expires_at as string).getTime();
+    if (Date.now() >= expiresAt - 60_000) {
+      const refreshed = await refreshWhoopToken(row.refresh_token as string);
+      accessToken = refreshed.access_token!;
+      const newExpiresAt = new Date(
+        Date.now() + refreshed.expires_in! * 1000,
+      ).toISOString();
+      const { error: upErr } = await context.supabase
+        .from("whoop_tokens")
+        .update({
+          access_token: refreshed.access_token,
+          refresh_token: refreshed.refresh_token ?? row.refresh_token,
+          expires_at: newExpiresAt,
+          scope: refreshed.scope ?? WHOOP_SCOPE,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", context.userId);
+      if (upErr) throw new Error(`Failed to persist refreshed token: ${upErr.message}`);
+    }
+
+    const authHeaders = { Authorization: `Bearer ${accessToken}` };
+
+    const fetchJson = async (path: string) => {
+      const r = await fetch(`${WHOOP_API_BASE}${path}`, { headers: authHeaders });
+      const text = await r.text();
+      if (!r.ok) {
+        throw new Error(`Whoop ${path} failed (${r.status}): ${text}`);
+      }
+      return JSON.parse(text);
+    };
+
+    const [cycleRes, recoveryRes] = await Promise.all([
+      fetchJson("/v1/cycle?limit=1"),
+      fetchJson("/v1/recovery?limit=1"),
+    ]);
+
+    const cycle = cycleRes?.records?.[0];
+    const recovery = recoveryRes?.records?.[0];
+
+    const strain = cycle?.score?.strain ?? null;
+    const kilojoule = cycle?.score?.kilojoule ?? null;
+    const calories = typeof kilojoule === "number" ? kilojoule / 4.184 : null;
+    const recoveryScore = recovery?.score?.recovery_score ?? null;
+
+    return {
+      strain,
+      calories,
+      recoveryScore,
+      cycleStart: cycle?.start ?? null,
+    };
   });
