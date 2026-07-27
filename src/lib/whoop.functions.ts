@@ -5,26 +5,14 @@ import {
   deleteCookie,
 } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-
-const WHOOP_AUTH_URL = "https://api.prod.whoop.com/oauth/oauth2/auth";
-const WHOOP_TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token";
-const REDIRECT_URI = "https://whoop-cut.lovable.app/whoop-callback";
-const SCOPE =
-  "read:recovery read:cycles read:sleep read:workout read:profile read:body_measurement";
-const STATE_COOKIE = "whoop_oauth_state";
-
-const redactTokenResponse = (value: unknown) => {
-  if (!value || typeof value !== "object") return value;
-
-  return Object.fromEntries(
-    Object.entries(value).map(([key, fieldValue]) => {
-      if (key.toLowerCase().includes("token")) {
-        return [key, typeof fieldValue === "string" ? `[redacted:${fieldValue.length}]` : "[redacted]"];
-      }
-      return [key, fieldValue];
-    }),
-  );
-};
+import {
+  WHOOP_AUTH_URL,
+  WHOOP_REDIRECT_URI,
+  WHOOP_SCOPE,
+  WHOOP_STATE_COOKIE,
+  WHOOP_TOKEN_URL,
+  redactTokenResponse,
+} from "@/lib/whoop.server";
 
 export const getWhoopStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -49,7 +37,7 @@ export const startWhoopOAuth = createServerFn({ method: "POST" })
       b.toString(16).padStart(2, "0"),
     ).join("");
 
-    setCookie(STATE_COOKIE, state, {
+    setCookie(WHOOP_STATE_COOKIE, state, {
       httpOnly: true,
       secure: true,
       sameSite: "lax",
@@ -59,9 +47,9 @@ export const startWhoopOAuth = createServerFn({ method: "POST" })
 
     const params = new URLSearchParams({
       client_id: clientId,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: WHOOP_REDIRECT_URI,
       response_type: "code",
-      scope: SCOPE,
+      scope: WHOOP_SCOPE,
       state,
     });
 
@@ -72,11 +60,11 @@ export const completeWhoopOAuth = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { code: string; state: string }) => data)
   .handler(async ({ data, context }) => {
-    const cookieState = getCookie(STATE_COOKIE);
+    const cookieState = getCookie(WHOOP_STATE_COOKIE);
     if (!cookieState || cookieState !== data.state) {
       throw new Error("Invalid OAuth state");
     }
-    deleteCookie(STATE_COOKIE, { path: "/" });
+    deleteCookie(WHOOP_STATE_COOKIE, { path: "/" });
 
     const clientId = process.env.WHOOP_CLIENT_ID;
     const clientSecret = process.env.WHOOP_CLIENT_SECRET;
@@ -87,7 +75,7 @@ export const completeWhoopOAuth = createServerFn({ method: "POST" })
     const body = new URLSearchParams({
       grant_type: "authorization_code",
       code: data.code,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: WHOOP_REDIRECT_URI,
       client_id: clientId,
       client_secret: clientSecret,
     });
@@ -123,7 +111,7 @@ export const completeWhoopOAuth = createServerFn({ method: "POST" })
 
     if (typeof token.refresh_token !== "string" || token.refresh_token.length === 0) {
       throw new Error(
-        `Whoop token response missing refresh_token. Response: ${JSON.stringify(redactedTokenResponse)}`,
+        `Whoop did not return a refresh_token. Please reconnect Whoop so the updated offline access permission is requested. Response: ${JSON.stringify(redactedTokenResponse)}`,
       );
     }
 
@@ -141,7 +129,7 @@ export const completeWhoopOAuth = createServerFn({ method: "POST" })
         access_token: token.access_token,
         refresh_token: token.refresh_token,
         expires_at: expiresAt,
-        scope: token.scope ?? SCOPE,
+        scope: token.scope ?? WHOOP_SCOPE,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
