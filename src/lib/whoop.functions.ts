@@ -13,6 +13,19 @@ const SCOPE =
   "read:recovery read:cycles read:sleep read:workout read:profile read:body_measurement";
 const STATE_COOKIE = "whoop_oauth_state";
 
+const redactTokenResponse = (value: unknown) => {
+  if (!value || typeof value !== "object") return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, fieldValue]) => {
+      if (key.toLowerCase().includes("token")) {
+        return [key, typeof fieldValue === "string" ? `[redacted:${fieldValue.length}]` : "[redacted]"];
+      }
+      return [key, fieldValue];
+    }),
+  );
+};
+
 export const getWhoopStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -91,12 +104,34 @@ export const completeWhoopOAuth = createServerFn({ method: "POST" })
       throw new Error("Whoop token exchange failed");
     }
 
-    const token = (await res.json()) as {
-      access_token: string;
-      refresh_token: string;
+    const rawTokenResponse = (await res.json()) as Record<string, unknown>;
+    const redactedTokenResponse = redactTokenResponse(rawTokenResponse);
+    console.log("Whoop token exchange response", redactedTokenResponse);
+
+    const token = rawTokenResponse as {
+      access_token?: unknown;
+      refresh_token?: unknown;
       expires_in: number;
       scope?: string;
     };
+
+    if (typeof token.access_token !== "string" || token.access_token.length === 0) {
+      throw new Error(
+        `Whoop token response missing access_token. Response: ${JSON.stringify(redactedTokenResponse)}`,
+      );
+    }
+
+    if (typeof token.refresh_token !== "string" || token.refresh_token.length === 0) {
+      throw new Error(
+        `Whoop token response missing refresh_token. Response: ${JSON.stringify(redactedTokenResponse)}`,
+      );
+    }
+
+    if (typeof token.expires_in !== "number") {
+      throw new Error(
+        `Whoop token response missing expires_in. Response: ${JSON.stringify(redactedTokenResponse)}`,
+      );
+    }
 
     const expiresAt = new Date(Date.now() + token.expires_in * 1000).toISOString();
 
