@@ -1,12 +1,25 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getWhoopDashboard,
   getWhoopStatus,
   startWhoopOAuth,
 } from "@/lib/whoop.functions";
+import {
+  listWeightEntries,
+  saveWeightEntry,
+} from "@/lib/weight.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
