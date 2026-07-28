@@ -183,7 +183,7 @@ function Index() {
         </div>
       ) : (
 
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex w-full max-w-md flex-col items-center gap-4">
           <button
             type="button"
             onClick={connect}
@@ -192,6 +192,9 @@ function Index() {
           >
             {busy ? "Redirecting…" : "Connect Whoop"}
           </button>
+
+          <WeightSection />
+
           <p className="text-xs text-muted-foreground">Signed in as {userEmail}</p>
           <button
             type="button"
@@ -201,6 +204,7 @@ function Index() {
             Sign out
           </button>
         </div>
+
       )}
     </div>
   );
