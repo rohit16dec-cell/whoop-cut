@@ -226,8 +226,8 @@ export const getWhoopDashboard = createServerFn({ method: "GET" })
     };
 
     const [cycleRes, recoveryRes] = await Promise.all([
-      fetchJson("/v1/cycle?limit=1"),
-      fetchJson("/v1/recovery?limit=1"),
+      fetchJson("/v2/cycle?limit=1"),
+      fetchJson("/v2/recovery?limit=1"),
     ]);
 
     const cycle = cycleRes?.records?.[0];
