@@ -209,3 +209,128 @@ function Index() {
     </div>
   );
 }
+
+type WeightEntry = { id: string; weight_kg: number; entry_date: string };
+
+function WeightSection() {
+  const listFn = useServerFn(listWeightEntries);
+  const saveFn = useServerFn(saveWeightEntry);
+  const [entries, setEntries] = useState<WeightEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listFn();
+      setEntries(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [listFn]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const onSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const weight = parseFloat(value);
+    if (!isFinite(weight) || weight <= 0) {
+      setError("Enter a valid weight in kg");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await saveFn({ data: { weight_kg: weight } });
+      setValue("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const chartData = entries.map((e) => ({
+    date: e.entry_date.slice(5),
+    weight: e.weight_kg,
+  }));
+
+  return (
+    <div className="w-full rounded-lg border p-4">
+      <h2 className="mb-3 text-lg font-semibold">Log Weight</h2>
+      <form onSubmit={onSave} className="flex gap-2">
+        <input
+          type="number"
+          step="0.1"
+          min="0"
+          inputMode="decimal"
+          placeholder="Weight (kg)"
+          value={value}
+          onChange={(ev) => setValue(ev.target.value)}
+          className="flex-1 rounded-md border bg-background px-3 py-2 text-sm"
+          required
+        />
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </form>
+
+      {error && (
+        <p className="mt-3 whitespace-pre-wrap break-words rounded-md bg-red-50 p-2 text-xs text-red-800 dark:bg-red-950/40 dark:text-red-300">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-4">
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : entries.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No entries yet.</p>
+        ) : (
+          <>
+            {entries.length >= 2 && (
+              <div className="h-40 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis dataKey="date" fontSize={10} />
+                    <YAxis domain={["auto", "auto"]} fontSize={10} />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="weight"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto text-sm">
+              {[...entries].reverse().map((e) => (
+                <li key={e.id} className="flex justify-between border-b py-1 last:border-b-0">
+                  <span className="text-muted-foreground">{e.entry_date}</span>
+                  <span className="font-medium">{e.weight_kg.toFixed(1)} kg</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
