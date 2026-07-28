@@ -169,6 +169,9 @@ function Index() {
             ) : null}
           </div>
 
+          <WeightSection />
+
+
           <p className="text-xs text-muted-foreground">Signed in as {userEmail}</p>
           <button
             type="button"
