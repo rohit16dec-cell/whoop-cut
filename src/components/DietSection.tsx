@@ -188,6 +188,35 @@ export function DietSection() {
           {dietType && (
             <div>
               <div className="mb-2 text-sm font-medium">My food list</div>
+
+              <select
+                value=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v) void addFoodByName(v);
+                }}
+                disabled={saving || grouped.length === 0}
+                className="mb-2 w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+              >
+                <option value="">
+                  {grouped.length === 0
+                    ? "All suggestions added — use the input below"
+                    : "Choose from suggestions…"}
+                </option>
+                {grouped.map(([category, items]) => (
+                  <optgroup key={category} label={category}>
+                    {items.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+
+              <p className="mb-1 text-xs text-muted-foreground">
+                Not in the list? Add it manually:
+              </p>
               <form onSubmit={addFood} className="flex gap-2">
                 <input
                   type="text"
