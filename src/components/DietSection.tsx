@@ -5,6 +5,8 @@ import {
   setDietType,
   setDietFoods,
   type DietType,
+  type FoodItem,
+  type FoodUnit,
 } from "@/lib/diet.functions";
 import { filterByDiet } from "@/lib/food-suggestions";
 
@@ -24,8 +26,10 @@ export function DietSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dietType, setDietTypeState] = useState<DietType | null>(null);
-  const [foods, setFoods] = useState<string[]>([]);
-  const [input, setInput] = useState("");
+  const [items, setItems] = useState<FoodItem[]>([]);
+  const [name, setName] = useState("");
+  const [qty, setQty] = useState("");
+  const [unit, setUnit] = useState<FoodUnit>("portion");
   const [editingType, setEditingType] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -34,7 +38,7 @@ export function DietSection() {
     try {
       const d = await loadFn();
       setDietTypeState(d.diet_type);
-      setFoods(d.foods);
+      setItems(d.food_items);
       if (!d.diet_type) setEditingType(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -76,10 +80,24 @@ export function DietSection() {
     return null;
   };
 
-  const addFoodByName = async (rawName: string) => {
+  const persist = async (next: FoodItem[]) => {
+    setSaving(true);
+    setError(null);
+    try {
+      await saveFoodsFn({ data: { food_items: next } });
+      setItems(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addFoodByName = async (rawName: string, quantity: number | null, u: FoodUnit) => {
     const trimmed = rawName.trim();
     if (!trimmed) return;
-    if (foods.some((f) => f.toLowerCase() === trimmed.toLowerCase())) {
+    if (items.some((f) => f.name.toLowerCase() === trimmed.toLowerCase())) {
       setError("Already in your list");
       return;
     }
@@ -88,23 +106,20 @@ export function DietSection() {
       setError(violation);
       return;
     }
-    const next = [...foods, trimmed];
-    setSaving(true);
-    setError(null);
     try {
-      await saveFoodsFn({ data: { foods: next } });
-      setFoods(next);
-      setInput("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
+      await persist([...items, { name: trimmed, quantity, unit: u }]);
+      setName("");
+      setQty("");
+    } catch {
+      /* handled */
     }
   };
 
   const addFood = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addFoodByName(input);
+    const q = qty.trim() === "" ? null : parseFloat(qty);
+    const quantity = q !== null && isFinite(q) && q > 0 ? q : null;
+    await addFoodByName(name, quantity, unit);
   };
 
   const suggestions = useMemo(
@@ -113,7 +128,7 @@ export function DietSection() {
   );
 
   const grouped = useMemo(() => {
-    const taken = new Set(foods.map((f) => f.toLowerCase()));
+    const taken = new Set(items.map((f) => f.name.toLowerCase()));
     const groups = new Map<string, string[]>();
     for (const s of suggestions) {
       if (taken.has(s.name.toLowerCase())) continue;
@@ -121,19 +136,21 @@ export function DietSection() {
       groups.get(s.category)!.push(s.name);
     }
     return Array.from(groups.entries());
-  }, [suggestions, foods]);
+  }, [suggestions, items]);
 
-  const removeFood = async (item: string) => {
-    const next = foods.filter((f) => f !== item);
-    setSaving(true);
-    setError(null);
+  const removeFood = async (n: string) => {
     try {
-      await saveFoodsFn({ data: { foods: next } });
-      setFoods(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
+      await persist(items.filter((f) => f.name !== n));
+    } catch {
+      /* handled */
+    }
+  };
+
+  const updateItem = async (n: string, patch: Partial<FoodItem>) => {
+    try {
+      await persist(items.map((f) => (f.name === n ? { ...f, ...patch } : f)));
+    } catch {
+      /* handled */
     }
   };
 
@@ -141,6 +158,11 @@ export function DietSection() {
     vegetarian: "Vegetarian",
     "non-vegetarian": "Non-Vegetarian",
     eggetarian: "Eggetarian",
+  };
+
+  const fmtQty = (it: FoodItem) => {
+    if (it.quantity == null) return "";
+    return it.unit === "g" ? `${it.quantity} g` : `${it.quantity} ${it.quantity === 1 ? "portion" : "portions"}`;
   };
 
   return (
@@ -193,7 +215,7 @@ export function DietSection() {
                 value=""
                 onChange={(e) => {
                   const v = e.target.value;
-                  if (v) void addFoodByName(v);
+                  if (v) setName(v);
                 }}
                 disabled={saving || grouped.length === 0}
                 className="mb-2 w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
@@ -203,60 +225,111 @@ export function DietSection() {
                     ? "All suggestions added — use the input below"
                     : "Choose from suggestions…"}
                 </option>
-                {grouped.map(([category, items]) => (
+                {grouped.map(([category, names]) => (
                   <optgroup key={category} label={category}>
-                    {items.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
+                    {names.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
                       </option>
                     ))}
                   </optgroup>
                 ))}
               </select>
 
-              <p className="mb-1 text-xs text-muted-foreground">
-                Not in the list? Add it manually:
-              </p>
-              <form onSubmit={addFood} className="flex gap-2">
+              <form onSubmit={addFood} className="flex flex-col gap-2">
                 <input
                   type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="e.g. paneer, oats"
-                  className="flex-1 rounded-md border bg-background px-3 py-2 text-sm"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Food name (e.g. paneer, oats)"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 />
-                <button
-                  type="submit"
-                  disabled={saving || !input.trim()}
-                  className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-                >
-                  Add
-                </button>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.1"
+                    value={qty}
+                    onChange={(e) => setQty(e.target.value)}
+                    placeholder="Qty (optional)"
+                    className="flex-1 rounded-md border bg-background px-3 py-2 text-sm"
+                  />
+                  <select
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value as FoodUnit)}
+                    className="rounded-md border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="portion">portions</option>
+                    <option value="g">grams</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={saving || !name.trim()}
+                    className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                  >
+                    Add
+                  </button>
+                </div>
               </form>
 
-              {foods.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {foods.map((f) => (
-                    <span
-                      key={f}
-                      className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs"
+              {items.length > 0 ? (
+                <ul className="mt-3 flex flex-col gap-2">
+                  {items.map((it) => (
+                    <li
+                      key={it.name}
+                      className="flex items-center gap-2 rounded-md border bg-secondary/40 px-3 py-2 text-xs"
                     >
-                      {f}
+                      <span className="flex-1 font-medium">{it.name}</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.1"
+                        value={it.quantity ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const q = v === "" ? null : parseFloat(v);
+                          void updateItem(it.name, {
+                            quantity: q !== null && isFinite(q) && q > 0 ? q : null,
+                          });
+                        }}
+                        placeholder="qty"
+                        className="w-16 rounded border bg-background px-2 py-1 text-xs"
+                      />
+                      <select
+                        value={it.unit}
+                        onChange={(e) =>
+                          void updateItem(it.name, { unit: e.target.value as FoodUnit })
+                        }
+                        className="rounded border bg-background px-1 py-1 text-xs"
+                      >
+                        <option value="portion">portions</option>
+                        <option value="g">g</option>
+                      </select>
                       <button
                         type="button"
-                        onClick={() => removeFood(f)}
+                        onClick={() => removeFood(it.name)}
                         disabled={saving}
                         className="ml-1 text-muted-foreground hover:text-foreground"
-                        aria-label={`Remove ${f}`}
+                        aria-label={`Remove ${it.name}`}
                       >
                         ×
                       </button>
-                    </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               ) : (
                 <p className="mt-3 text-sm text-muted-foreground">No foods added yet.</p>
               )}
+              {items.some((i) => i.quantity != null) && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Totals: {items.filter((i) => i.quantity != null && i.unit === "g").reduce((a, b) => a + (b.quantity ?? 0), 0)} g
+                  {" · "}
+                  {items.filter((i) => i.quantity != null && i.unit === "portion").reduce((a, b) => a + (b.quantity ?? 0), 0)} portions
+                </p>
+              )}
+              <p className="sr-only">{items.map(fmtQty).join(", ")}</p>
             </div>
           )}
 
