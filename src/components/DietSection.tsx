@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   getDietPreferences,
@@ -6,6 +6,7 @@ import {
   setDietFoods,
   type DietType,
 } from "@/lib/diet.functions";
+import { filterByDiet } from "@/lib/food-suggestions";
 
 const NON_VEG_KEYWORDS = [
   "chicken", "mutton", "beef", "pork", "lamb", "fish", "tuna", "salmon",
@@ -75,13 +76,11 @@ export function DietSection() {
     return null;
   };
 
-  const addFood = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = input.trim();
+  const addFoodByName = async (rawName: string) => {
+    const trimmed = rawName.trim();
     if (!trimmed) return;
     if (foods.some((f) => f.toLowerCase() === trimmed.toLowerCase())) {
       setError("Already in your list");
-      setInput("");
       return;
     }
     const violation = violatesDiet(trimmed);
@@ -102,6 +101,27 @@ export function DietSection() {
       setSaving(false);
     }
   };
+
+  const addFood = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await addFoodByName(input);
+  };
+
+  const suggestions = useMemo(
+    () => (dietType ? filterByDiet(dietType) : []),
+    [dietType],
+  );
+
+  const grouped = useMemo(() => {
+    const taken = new Set(foods.map((f) => f.toLowerCase()));
+    const groups = new Map<string, string[]>();
+    for (const s of suggestions) {
+      if (taken.has(s.name.toLowerCase())) continue;
+      if (!groups.has(s.category)) groups.set(s.category, []);
+      groups.get(s.category)!.push(s.name);
+    }
+    return Array.from(groups.entries());
+  }, [suggestions, foods]);
 
   const removeFood = async (item: string) => {
     const next = foods.filter((f) => f !== item);
@@ -168,6 +188,35 @@ export function DietSection() {
           {dietType && (
             <div>
               <div className="mb-2 text-sm font-medium">My food list</div>
+
+              <select
+                value=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v) void addFoodByName(v);
+                }}
+                disabled={saving || grouped.length === 0}
+                className="mb-2 w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+              >
+                <option value="">
+                  {grouped.length === 0
+                    ? "All suggestions added — use the input below"
+                    : "Choose from suggestions…"}
+                </option>
+                {grouped.map(([category, items]) => (
+                  <optgroup key={category} label={category}>
+                    {items.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+
+              <p className="mb-1 text-xs text-muted-foreground">
+                Not in the list? Add it manually:
+              </p>
               <form onSubmit={addFood} className="flex gap-2">
                 <input
                   type="text"
