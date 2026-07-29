@@ -76,13 +76,11 @@ export function DietSection() {
     return null;
   };
 
-  const addFood = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = input.trim();
+  const addFoodByName = async (rawName: string) => {
+    const trimmed = rawName.trim();
     if (!trimmed) return;
     if (foods.some((f) => f.toLowerCase() === trimmed.toLowerCase())) {
       setError("Already in your list");
-      setInput("");
       return;
     }
     const violation = violatesDiet(trimmed);
@@ -103,6 +101,27 @@ export function DietSection() {
       setSaving(false);
     }
   };
+
+  const addFood = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await addFoodByName(input);
+  };
+
+  const suggestions = useMemo(
+    () => (dietType ? filterByDiet(dietType) : []),
+    [dietType],
+  );
+
+  const grouped = useMemo(() => {
+    const taken = new Set(foods.map((f) => f.toLowerCase()));
+    const groups = new Map<string, string[]>();
+    for (const s of suggestions) {
+      if (taken.has(s.name.toLowerCase())) continue;
+      if (!groups.has(s.category)) groups.set(s.category, []);
+      groups.get(s.category)!.push(s.name);
+    }
+    return Array.from(groups.entries());
+  }, [suggestions, foods]);
 
   const removeFood = async (item: string) => {
     const next = foods.filter((f) => f !== item);
