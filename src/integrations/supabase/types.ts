@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           diet_type: string | null
+          food_items: Json
           foods: string[]
           updated_at: string
           user_id: string
@@ -25,6 +26,7 @@ export type Database = {
         Insert: {
           created_at?: string
           diet_type?: string | null
+          food_items?: Json
           foods?: string[]
           updated_at?: string
           user_id: string
@@ -32,6 +34,7 @@ export type Database = {
         Update: {
           created_at?: string
           diet_type?: string | null
+          food_items?: Json
           foods?: string[]
           updated_at?: string
           user_id?: string
