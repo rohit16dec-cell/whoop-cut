@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   getDietPreferences,
@@ -6,6 +6,7 @@ import {
   setDietFoods,
   type DietType,
 } from "@/lib/diet.functions";
+import { filterByDiet } from "@/lib/food-suggestions";
 
 const NON_VEG_KEYWORDS = [
   "chicken", "mutton", "beef", "pork", "lamb", "fish", "tuna", "salmon",
