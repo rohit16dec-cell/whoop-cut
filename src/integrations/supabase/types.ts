@@ -17,6 +17,7 @@ export type Database = {
       diet_preferences: {
         Row: {
           created_at: string
+          deficit_kcal: number | null
           diet_type: string | null
           food_items: Json
           foods: string[]
@@ -25,6 +26,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deficit_kcal?: number | null
           diet_type?: string | null
           food_items?: Json
           foods?: string[]
@@ -33,6 +35,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deficit_kcal?: number | null
           diet_type?: string | null
           food_items?: Json
           foods?: string[]
@@ -43,6 +46,7 @@ export type Database = {
       }
       food_logs: {
         Row: {
+          calories: number | null
           created_at: string
           entry_date: string
           id: string
@@ -53,6 +57,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          calories?: number | null
           created_at?: string
           entry_date?: string
           id?: string
@@ -63,6 +68,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          calories?: number | null
           created_at?: string
           entry_date?: string
           id?: string
