@@ -21,6 +21,7 @@ import {
   saveWeightEntry,
 } from "@/lib/weight.functions";
 import { DietSection } from "@/components/DietSection";
+import { FoodLogSection } from "@/components/FoodLogSection";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -172,6 +173,7 @@ function Index() {
 
           <WeightSection />
           <DietSection />
+          <FoodLogSection />
 
 
 
@@ -199,6 +201,7 @@ function Index() {
 
           <WeightSection />
           <DietSection />
+          <FoodLogSection />
 
           <p className="text-xs text-muted-foreground">Signed in as {userEmail}</p>
           <button
