@@ -21,6 +21,7 @@ import {
   saveWeightEntry,
 } from "@/lib/weight.functions";
 import { DietSection } from "@/components/DietSection";
+import { FoodLogSection } from "@/components/FoodLogSection";
 
 export const Route = createFileRoute("/")({
   head: () => ({
