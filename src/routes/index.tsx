@@ -200,6 +200,7 @@ function Index() {
 
           <WeightSection />
           <DietSection />
+          <FoodLogSection />
 
           <p className="text-xs text-muted-foreground">Signed in as {userEmail}</p>
           <button
