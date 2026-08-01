@@ -31,7 +31,7 @@ export const getDietPreferences = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("diet_preferences")
-      .select("diet_type, foods, food_items")
+      .select("diet_type, foods, food_items, deficit_kcal")
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(`Failed to load diet preferences: ${error.message}`);
@@ -42,17 +42,21 @@ export const getDietPreferences = createServerFn({ method: "GET" })
     return {
       diet_type: (data?.diet_type ?? null) as DietType | null,
       food_items: items,
+      deficit_kcal:
+        (data as any)?.deficit_kcal === null || (data as any)?.deficit_kcal === undefined
+          ? null
+          : Number((data as any).deficit_kcal),
     };
   });
 
 async function upsertPrefs(
   supabase: any,
   userId: string,
-  patch: { diet_type?: DietType; food_items?: FoodItem[] },
+  patch: { diet_type?: DietType; food_items?: FoodItem[]; deficit_kcal?: number },
 ) {
   const { data: existing } = await supabase
     .from("diet_preferences")
-    .select("diet_type, food_items")
+    .select("diet_type, food_items, deficit_kcal")
     .eq("user_id", userId)
     .maybeSingle();
   const items = patch.food_items ?? normalizeItems(existing?.food_items);
@@ -61,6 +65,7 @@ async function upsertPrefs(
     diet_type: patch.diet_type ?? existing?.diet_type ?? null,
     foods: items.map((i) => i.name),
     food_items: items,
+    deficit_kcal: patch.deficit_kcal ?? existing?.deficit_kcal ?? null,
     updated_at: new Date().toISOString(),
   };
   const { error } = await supabase
@@ -101,5 +106,17 @@ export const setDietFoods = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     await upsertPrefs(context.supabase, context.userId, { food_items: data.food_items });
+    return { ok: true };
+  });
+
+export const setDeficitTarget = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { deficit_kcal: number }) => {
+    const v = Number(data?.deficit_kcal);
+    if (!isFinite(v) || v < 0 || v > 3000) throw new Error("Enter a deficit between 0 and 3000 kcal");
+    return { deficit_kcal: Math.round(v) };
+  })
+  .handler(async ({ data, context }) => {
+    await upsertPrefs(context.supabase, context.userId, { deficit_kcal: data.deficit_kcal });
     return { ok: true };
   });

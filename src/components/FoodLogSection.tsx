@@ -13,7 +13,7 @@ import {
   type FoodItem,
 } from "@/lib/diet.functions";
 
-export function FoodLogSection() {
+export function FoodLogSection({ onChange }: { onChange?: () => void }) {
   const listFn = useServerFn(listTodayFoodLogs);
   const addFn = useServerFn(addFoodLog);
   const deleteFn = useServerFn(deleteFoodLog);
@@ -67,6 +67,7 @@ export function FoodLogSection() {
       setSelected("");
       setQty("");
       await load();
+      onChange?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -93,6 +94,7 @@ export function FoodLogSection() {
       setCustom("");
       setCustomQty("");
       await load();
+      onChange?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -106,6 +108,7 @@ export function FoodLogSection() {
     try {
       await deleteFn({ data: { id } });
       setLogs((prev) => prev.filter((l) => l.id !== id));
+      onChange?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -113,10 +116,16 @@ export function FoodLogSection() {
     }
   };
 
-  const label = (l: FoodLog) =>
-    l.quantity === null
-      ? l.name
-      : `${l.name} — ${l.quantity}${l.unit === "g" ? " g" : l.quantity === 1 ? " serving" : " servings"}`;
+  const label = (l: FoodLog) => {
+    const qty =
+      l.quantity === null
+        ? ""
+        : `, ${l.quantity}${l.unit === "g" ? "g" : l.quantity === 1 ? " serving" : " servings"}`;
+    const kcal = l.calories === null ? " — estimating…" : ` — approx ${Math.round(l.calories)} kcal`;
+    return `${l.name}${qty}${kcal}`;
+  };
+
+  const totalKcal = logs.reduce((sum, l) => sum + (l.calories ?? 0), 0);
 
   return (
     <div className="w-full rounded-lg border p-4">
@@ -165,7 +174,7 @@ export function FoodLogSection() {
               disabled={busy}
               className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
-              Add
+              {busy ? "Estimating…" : "Add"}
             </button>
           </div>
 
@@ -203,7 +212,7 @@ export function FoodLogSection() {
                 disabled={busy}
                 className="rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-50"
               >
-                Log
+                {busy ? "Estimating…" : "Log"}
               </button>
             </div>
             <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -223,7 +232,9 @@ export function FoodLogSection() {
           )}
 
           <div className="mt-4">
-            <h3 className="mb-2 text-sm font-semibold">Today</h3>
+            <h3 className="mb-2 text-sm font-semibold">
+              Today{logs.length > 0 ? ` — ${Math.round(totalKcal)} kcal eaten` : ""}
+            </h3>
             {logs.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nothing logged today yet.</p>
             ) : (

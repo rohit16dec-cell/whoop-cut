@@ -22,6 +22,7 @@ import {
 } from "@/lib/weight.functions";
 import { DietSection } from "@/components/DietSection";
 import { FoodLogSection } from "@/components/FoodLogSection";
+import { CalorieBudgetSection } from "@/components/CalorieBudgetSection";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -52,6 +53,7 @@ function Index() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [foodRefresh, setFoodRefresh] = useState(0);
   const statusFn = useServerFn(getWhoopStatus);
   const startFn = useServerFn(startWhoopOAuth);
   const dashboardFn = useServerFn(getWhoopDashboard);
@@ -173,10 +175,11 @@ function Index() {
 
           <WeightSection />
           <DietSection />
-          <FoodLogSection />
-
-
-
+          <FoodLogSection onChange={() => setFoodRefresh((n) => n + 1)} />
+          <CalorieBudgetSection
+            burned={dashboard?.calories ?? null}
+            refreshKey={foodRefresh}
+          />
 
           <p className="text-xs text-muted-foreground">Signed in as {userEmail}</p>
           <button
@@ -201,7 +204,8 @@ function Index() {
 
           <WeightSection />
           <DietSection />
-          <FoodLogSection />
+          <FoodLogSection onChange={() => setFoodRefresh((n) => n + 1)} />
+          <CalorieBudgetSection burned={null} refreshKey={foodRefresh} />
 
           <p className="text-xs text-muted-foreground">Signed in as {userEmail}</p>
           <button
