@@ -8,6 +8,7 @@ export type FoodLog = {
   quantity: number | null;
   unit: FoodLogUnit;
   entry_date: string;
+  calories: number | null;
 };
 
 function todayUtc(): string {
@@ -19,7 +20,7 @@ export const listTodayFoodLogs = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("food_logs")
-      .select("id, name, quantity, unit, entry_date")
+      .select("id, name, quantity, unit, entry_date, calories")
       .eq("user_id", context.userId)
       .eq("entry_date", todayUtc())
       .order("created_at", { ascending: true });
@@ -30,6 +31,11 @@ export const listTodayFoodLogs = createServerFn({ method: "GET" })
       quantity: r.quantity === null ? null : Number(r.quantity),
       unit: (r.unit === "g" ? "g" : "portion") as FoodLogUnit,
       entry_date: r.entry_date as string,
+      calories:
+        (r as { calories?: number | null }).calories === null ||
+        (r as { calories?: number | null }).calories === undefined
+          ? null
+          : Number((r as { calories?: number | null }).calories),
     })) satisfies FoodLog[];
   });
 
@@ -45,15 +51,18 @@ export const addFoodLog = createServerFn({ method: "POST" })
     return { name, quantity, unit: (data?.unit === "g" ? "g" : "portion") as FoodLogUnit };
   })
   .handler(async ({ data, context }) => {
+    const { estimateCalories } = await import("@/lib/calories.server");
+    const calories = await estimateCalories(data.name, data.quantity, data.unit);
     const { error } = await context.supabase.from("food_logs").insert({
       user_id: context.userId,
       name: data.name,
       quantity: data.quantity,
       unit: data.unit,
       entry_date: todayUtc(),
+      calories,
     });
     if (error) throw new Error(`Failed to log food: ${error.message}`);
-    return { ok: true };
+    return { ok: true, calories };
   });
 
 export const deleteFoodLog = createServerFn({ method: "POST" })
