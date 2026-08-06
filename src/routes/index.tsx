@@ -215,6 +215,7 @@ function Index() {
           <DietSection />
           <FoodLogSection onChange={() => setFoodRefresh((n) => n + 1)} />
           <CalorieBudgetSection burned={null} refreshKey={foodRefresh} />
+          <CoachChatSection whoop={null} refreshKey={foodRefresh} />
 
           <p className="text-xs text-muted-foreground">Signed in as {userEmail}</p>
           <button
