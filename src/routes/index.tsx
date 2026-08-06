@@ -23,6 +23,7 @@ import {
 import { DietSection } from "@/components/DietSection";
 import { FoodLogSection } from "@/components/FoodLogSection";
 import { CalorieBudgetSection } from "@/components/CalorieBudgetSection";
+import { CoachChatSection } from "@/components/CoachChatSection";
 
 export const Route = createFileRoute("/")({
   head: () => ({
