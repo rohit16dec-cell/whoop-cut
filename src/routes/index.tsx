@@ -23,6 +23,7 @@ import {
 import { DietSection } from "@/components/DietSection";
 import { FoodLogSection } from "@/components/FoodLogSection";
 import { CalorieBudgetSection } from "@/components/CalorieBudgetSection";
+import { CoachChatSection } from "@/components/CoachChatSection";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -180,6 +181,14 @@ function Index() {
             burned={dashboard?.calories ?? null}
             refreshKey={foodRefresh}
           />
+          <CoachChatSection
+            whoop={{
+              strain: dashboard?.strain ?? null,
+              recovery: dashboard?.recoveryScore ?? null,
+              calories: dashboard?.calories ?? null,
+            }}
+            refreshKey={foodRefresh}
+          />
 
           <p className="text-xs text-muted-foreground">Signed in as {userEmail}</p>
           <button
@@ -206,6 +215,7 @@ function Index() {
           <DietSection />
           <FoodLogSection onChange={() => setFoodRefresh((n) => n + 1)} />
           <CalorieBudgetSection burned={null} refreshKey={foodRefresh} />
+          <CoachChatSection whoop={null} refreshKey={foodRefresh} />
 
           <p className="text-xs text-muted-foreground">Signed in as {userEmail}</p>
           <button
